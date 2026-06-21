@@ -1943,12 +1943,31 @@ function ensureWindowPty(session, windowIndex) {
 
   ptyProc.onExit(({ exitCode }) => {
     console.log(`PTY ${actualKey} exited with code ${exitCode}`);
+    const savedClients = entry.clients;
+    const savedSizes = entry.clientSizes;
     ptyMap.delete(actualKey);
-    // 如果 window 还在，重新创建
+    // 如果 window 还在，重新创建并迁移孤儿客户端
     try {
       const list = execFileSync('tmux', ['list-windows', '-t', safeSession, '-F', '#I'], { encoding: 'utf8', stdio: 'pipe' }).trim().split('\n');
       if (list.includes(String(targetWindow))) {
-        setTimeout(() => ensureWindowPty(safeSession, targetWindow), 100);
+        setTimeout(() => {
+          try {
+            const { key: newKey, entry: newEntry } = ensureWindowPty(safeSession, targetWindow);
+            for (const ws of savedClients) {
+              if (ws.readyState === 1) {
+                ws._ptyKey = newKey;
+                newEntry.clients.add(ws);
+                const size = savedSizes.get(ws);
+                if (size) newEntry.clientSizes.set(ws, size);
+              }
+            }
+            if (newEntry.lastOutput) {
+              for (const ws of savedClients) {
+                if (ws.readyState === 1) ws.send(newEntry.lastOutput.slice(-2000));
+              }
+            }
+          } catch (e) { console.error('PTY recreation failed:', e.message); }
+        }, 100);
       }
     } catch {}
   });
@@ -1975,6 +1994,9 @@ wss.on('connection', (ws, req) => {
   }
 
   const { key, entry } = ensureWindowPty(session, windowIndex);
+  // Store current ptyMap key on ws so close/message handlers can find the
+  // correct entry after PTY recreation migrates clients to a new map key.
+  ws._ptyKey = key;
   entry.clients.add(ws);
   console.log(`Client connected to ${key} (clients: ${entry.clients.size})`);
 
@@ -1989,7 +2011,7 @@ wss.on('connection', (ws, req) => {
   }
 
   ws.on('message', (msg) => {
-    const ent = ptyMap.get(key);
+    const ent = ptyMap.get(ws._ptyKey);
     if (!ent) return;
     const str = typeof msg === 'string' ? msg : msg.toString();
     let isResize = false;
@@ -2012,11 +2034,11 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    const ent = ptyMap.get(key);
+    const ent = ptyMap.get(ws._ptyKey);
     if (ent) {
       ent.clients.delete(ws);
       ent.clientSizes.delete(ws);
-      console.log(`Client disconnected from ${key} (clients: ${ent.clients.size})`);
+      console.log(`Client disconnected from ${ws._ptyKey} (clients: ${ent.clients.size})`);
       // Recompute minimum size if other clients remain
       if (ent.clients.size > 0 && ent.clientSizes.size > 0) {
         let minCols = Infinity, minRows = Infinity;
@@ -2040,7 +2062,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('error', (err) => {
     console.error('WebSocket error:', err.message);
-    const ent = ptyMap.get(key);
+    const ent = ptyMap.get(ws._ptyKey);
     if (ent) { ent.clients.delete(ws); ent.clientSizes.delete(ws); }
   });
 });
