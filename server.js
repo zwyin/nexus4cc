@@ -1993,7 +1993,20 @@ wss.on('connection', (ws, req) => {
     return;
   }
 
-  const { key, entry } = ensureWindowPty(session, windowIndex);
+  let key, entry;
+  try {
+    ({ key, entry } = ensureWindowPty(session, windowIndex));
+  } catch (err) {
+    console.error('ensureWindowPty failed:', err.message);
+    ws.close(1011, 'internal error');
+    return;
+  }
+
+  if (!entry || !entry.pty) {
+    ws.close(1011, 'pty unavailable');
+    return;
+  }
+
   // Store current ptyMap key on ws so close/message handlers can find the
   // correct entry after PTY recreation migrates clients to a new map key.
   ws._ptyKey = key;
