@@ -11,6 +11,10 @@
 
 ---
 
+> **推荐仓库：** 本项目当前在 fork [zwyin/nexus4cc](https://github.com/zwyin/nexus4cc) 活跃维护。上游 [librae8226/nexus4cc](https://github.com/librae8226/nexus4cc) 仅作 upstream 追踪，不再接受 PR。新用户建议从 fork 克隆。
+
+---
+
 ### 演示
 
 <p>

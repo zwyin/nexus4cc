@@ -11,6 +11,10 @@
 
 ---
 
+> **Active fork:** This project is actively maintained at the fork [zwyin/nexus4cc](https://github.com/zwyin/nexus4cc). The upstream [librae8226/nexus4cc](https://github.com/librae8226/nexus4cc) is tracked only as an upstream remote and no longer accepts pull requests. New users should clone from the fork.
+
+---
+
 ### Showcase
 
 <p>
