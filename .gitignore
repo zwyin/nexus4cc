@@ -39,3 +39,9 @@ logs/
 # Local scratch files (whiteboard mermaid sources, temp docs)
 .wb-*.mmd
 nexus-tech-report-wb.md
+
+# Code indexing tool artifacts
+.codegraph/
+
+# Local-only experiments (not part of Nexus)
+xiaomi_tts_demo.py
